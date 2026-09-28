@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 import { useForm, Controller } from "react-hook-form";
@@ -52,17 +52,10 @@ export default function TaskForm({
 }: TaskFormProps) {
   const dispatch = useDispatch<AppDispatch>();
 
-  const [isDescriptionOpen, setIsDescriptionOpen] =
-    useState(false);
-
-  const [descriptionDraft, setDescriptionDraft] =
-    useState(task?.description ?? "");
-
   const {
     register,
     handleSubmit,
     control,
-    setValue,
     reset,
     formState: { errors },
   } = useForm<TaskFormValues>({
@@ -85,8 +78,6 @@ export default function TaskForm({
     dueDate: task.dueDate,
   });
 
-  setDescriptionDraft(task.description);
-  setIsDescriptionOpen(false);
 }, [task, reset]);
 
   const onSubmit = (values: TaskFormValues) => {
@@ -119,10 +110,11 @@ export default function TaskForm({
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="space-y-5"
+      className="flex min-h-0 flex-1 flex-col"
     >
-      {/* Title */}
-      <div>
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto py-4 pr-2">
+        {/* Title */}
+        <div>
         <label className="mb-1.5 block text-sm font-medium">
           Title
         </label>
@@ -138,83 +130,34 @@ export default function TaskForm({
             {errors.title.message}
           </p>
         )}
-      </div>
+        </div>
 
-      {/* Description */}
-      <div>
+        {/* Description */}
+        <div>
         <label className="mb-1.5 block text-sm font-medium">
           Description
         </label>
 
-        {!isDescriptionOpen ? (
-          <button
-            type="button"
-            onClick={() => setIsDescriptionOpen(true)}
-            className="w-full rounded-md border border-input px-3 py-3 text-left text-sm transition-colors hover:bg-muted/50"
-          >
-            {descriptionDraft ? (
-              <div
-                className="text-foreground"
-                dangerouslySetInnerHTML={{
-                  __html: descriptionDraft,
-                }}
-              />
-            ) : (
-              <span className="text-muted-foreground">
-                Add a description...
-              </span>
-            )}
-          </button>
-        ) : (
-          <div className="space-y-3">
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => (
             <RichTextEditor
-              value={descriptionDraft}
-              onChange={setDescriptionDraft}
+              value={field.value}
+              onChange={field.onChange}
             />
-
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setDescriptionDraft(
-                    task?.description ?? ""
-                  );
-                  setIsDescriptionOpen(false);
-                }}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                type="button"
-                onClick={() => {
-                  setValue(
-                    "description",
-                    descriptionDraft,
-                    {
-                      shouldValidate: true,
-                    }
-                  );
-
-                  setIsDescriptionOpen(false);
-                }}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
+        />
 
         {errors.description && (
           <p className="mt-1 text-sm text-destructive">
             {errors.description.message}
           </p>
         )}
-      </div>
+        </div>
 
-      {/* Status + Due Date */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Status + Due Date */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {/* Status */}
         <div>
           <label className="mb-1.5 block text-sm font-medium">
@@ -314,10 +257,11 @@ export default function TaskForm({
             </p>
           )}
         </div>
+        </div>
       </div>
 
       {/* Submit */}
-      <div className="flex justify-end border-t pt-4">
+      <div className="flex shrink-0 justify-end border-t bg-popover pt-4">
         <Button type="submit">
           {task ? "Save Changes" : "Create Task"}
         </Button>

@@ -60,12 +60,12 @@ const dispatch = useDispatch<AppDispatch>();
     <>
       <Card
         onClick={() => setOpen(true)}
-        className="cursor-pointer transition-shadow hover:shadow-md"
+        className="cursor-pointer border border-teal-900/10 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-teal-700/25 hover:shadow-md"
       >
         <CardContent className="p-4">
           {/* Title + Actions */}
           <div className="flex items-start justify-between gap-2">
-            <div className="font-semibold">
+            <div className="font-semibold tracking-tight text-zinc-900">
               {task.title}
             </div>
 
@@ -112,7 +112,7 @@ const dispatch = useDispatch<AppDispatch>();
 
           {/* Description */}
           <div
-            className="mt-2 text-sm text-muted-foreground line-clamp-2"
+            className="mt-2 max-h-24 overflow-y-auto overscroll-contain pr-1 text-sm text-muted-foreground"
             dangerouslySetInnerHTML={{
               __html: task.description,
             }}

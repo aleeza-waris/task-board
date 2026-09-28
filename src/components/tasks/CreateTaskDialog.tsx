@@ -28,14 +28,12 @@ export default function CreateTaskDialog() {
         }
       />
 
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-2xl">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Create Task</DialogTitle>
         </DialogHeader>
 
-        <div className="py-4">
-          <TaskForm onSuccess={() => setOpen(false)} />
-        </div>
+        <TaskForm onSuccess={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
   );

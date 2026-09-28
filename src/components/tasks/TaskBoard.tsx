@@ -136,7 +136,7 @@ export default function TaskBoard() {
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(
-      "(max-width: 639px)"
+      "(max-width: 767px)"
     );
 
     const handleChange = () => {
@@ -248,7 +248,7 @@ export default function TaskBoard() {
 
   if (!hasLoadedTasks || !hasLoadedColumns) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {initialColumns.map((column) => (
           <div
             key={column.id}
@@ -277,7 +277,7 @@ export default function TaskBoard() {
         items={columns.map((column) => column.id)}
         strategy={columnSortingStrategy}
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {columns.map((column) => (
             <TaskColumn
               key={column.id}

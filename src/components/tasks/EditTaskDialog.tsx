@@ -25,17 +25,15 @@ export default function EditTaskDialog({
 }: EditTaskDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-2xl">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Edit Task</DialogTitle>
         </DialogHeader>
 
-        <div className="py-4">
-          <TaskForm
-            task={task}
-            onSuccess={() => onOpenChange(false)}
-          />
-        </div>
+        <TaskForm
+          task={task}
+          onSuccess={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   );

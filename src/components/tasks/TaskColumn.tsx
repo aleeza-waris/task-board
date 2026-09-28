@@ -97,8 +97,8 @@ export default function TaskColumn({
         setDroppableNodeRef(node);
       }}
       style={style}
-      className={`flex min-h-30 flex-col self-start rounded-lg p-3 transition-colors sm:p-4 ${
-        isOver ? "bg-primary/10" : "bg-muted/50"
+      className={`flex min-h-30 flex-col self-start rounded-xl border p-3 shadow-sm transition-colors sm:p-4 ${
+        isOver ? "border-teal-300 bg-teal-50" : "border-teal-900/10 bg-white"
       }`}
     >
       {/* Column header */}
@@ -107,11 +107,11 @@ export default function TaskColumn({
         {...attributes}
         className="mb-4 flex touch-none cursor-grab items-center justify-between active:cursor-grabbing"
       >
-        <h2 className="text-sm font-semibold sm:text-base">
+        <h2 className="text-sm font-semibold tracking-tight text-zinc-800 sm:text-base">
           {title}
         </h2>
 
-        <span className="rounded-full bg-background px-2 py-1 text-xs font-medium">
+        <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-medium text-teal-800">
           {columnTasks.length}
         </span>
       </div>

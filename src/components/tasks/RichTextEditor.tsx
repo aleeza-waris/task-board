@@ -17,10 +17,11 @@ export default function RichTextEditor({
       value={value}
       onEditorChange={onChange}
       init={{
-        height: 160,
+        height: 220,
+        min_height: 220,
         menubar: false,
         plugins:
-          "advlist autolink lists link image charmap preview anchor " +
+          "autoresize advlist autolink lists link image charmap preview anchor " +
           "searchreplace visualblocks code fullscreen " +
           "insertdatetime media table help wordcount",
         toolbar:
