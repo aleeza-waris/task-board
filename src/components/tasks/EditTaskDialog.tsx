@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 
 import {
   Dialog,
@@ -14,6 +13,8 @@ import type { Task } from "@/types/task";
 
 type EditTaskDialogProps = {
   task: Task;
+  workspaceId: string;
+  canAssignTasks: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -21,6 +22,8 @@ type EditTaskDialogProps = {
 export default function EditTaskDialog({
   task,
   open,
+  workspaceId,
+  canAssignTasks,
   onOpenChange,
 }: EditTaskDialogProps) {
   return (
@@ -31,7 +34,9 @@ export default function EditTaskDialog({
         </DialogHeader>
 
         <TaskForm
-          task={task}
+            task={task}
+            workspaceId={workspaceId}
+            canAssignTasks={canAssignTasks}
           onSuccess={() => onOpenChange(false)}
         />
       </DialogContent>

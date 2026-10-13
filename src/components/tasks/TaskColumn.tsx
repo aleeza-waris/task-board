@@ -7,24 +7,31 @@ import {
 } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useSelector } from "react-redux";
 import { ClipboardList } from "lucide-react";
 
 import TaskCard from "./TaskCard";
 
 import type { Task, TaskStatus } from "@/types/task";
-import type { RootState } from "@/store/store";
 
 type TaskColumnProps = {
   id: TaskStatus;
   title: string;
+  tasks: Task[];
+  workspaceId: string;
+  canAssignTasks: boolean;
 };
 
 type DraggableTaskProps = {
   task: Task;
+  workspaceId: string;
+  canAssignTasks: boolean;
 };
 
-function DraggableTask({ task }: DraggableTaskProps) {
+function DraggableTask({
+  task,
+  workspaceId,
+  canAssignTasks,
+}: DraggableTaskProps) {
   const {
     attributes,
     listeners,
@@ -48,7 +55,11 @@ function DraggableTask({ task }: DraggableTaskProps) {
       {...attributes}
       className="touch-none"
     >
-      <TaskCard task={task} />
+      <TaskCard
+        task={task}
+        workspaceId={workspaceId}
+        canAssignTasks={canAssignTasks}
+      />
     </div>
   );
 }
@@ -56,6 +67,9 @@ function DraggableTask({ task }: DraggableTaskProps) {
 export default function TaskColumn({
   id,
   title,
+  tasks,
+  workspaceId,
+  canAssignTasks,
 }: TaskColumnProps) {
   const {
     attributes,
@@ -74,10 +88,6 @@ export default function TaskColumn({
   } = useDroppable({
     id,
   });
-
-  const tasks = useSelector(
-    (state: RootState) => state.tasks.tasks
-  );
 
   const columnTasks = useMemo(
     () => tasks.filter((task) => task.status === id),
@@ -98,7 +108,9 @@ export default function TaskColumn({
       }}
       style={style}
       className={`flex min-h-30 flex-col self-start rounded-xl border p-3 shadow-sm transition-colors sm:p-4 ${
-        isOver ? "border-teal-300 bg-teal-50" : "border-teal-900/10 bg-white"
+        isOver
+          ? "border-teal-300 bg-teal-50"
+          : "border-teal-900/10 bg-white"
       }`}
     >
       {/* Column header */}
@@ -143,6 +155,8 @@ export default function TaskColumn({
             <DraggableTask
               key={task.id}
               task={task}
+              workspaceId={workspaceId}
+              canAssignTasks={canAssignTasks}
             />
           ))
         )}

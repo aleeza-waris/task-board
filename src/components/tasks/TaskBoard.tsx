@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
 
 import {
   DndContext,
@@ -19,16 +17,15 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-
-import type { RootState, AppDispatch } from "@/store/store";
+import { Search } from "lucide-react";
 
 import {
-  setTasks,
-  updateTaskStatus,
-} from "@/store/slices/tasksSlice";
+  useWorkspaceTasks,
+  useUpdateTaskStatus,
+} from "@/hooks/tasks";
 
 import type { TaskStatus } from "@/types/task";
-
+import { useEffect, useMemo, useState } from "react";
 import TaskColumn from "./TaskColumn";
 
 const initialColumns: {
@@ -48,66 +45,60 @@ const statuses: TaskStatus[] = [
   "done",
 ];
 
-export default function TaskBoard() {
-  const dispatch = useDispatch<AppDispatch>();
+const normalizeSearchText = (value: string) =>
+  value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
 
-  const tasks = useSelector(
-    (state: RootState) => state.tasks.tasks
-  );
+type TaskBoardProps = {
+  workspaceId: string;
+  canAssignTasks: boolean;
+  searchQuery: string;
+};
 
+
+export default function TaskBoard({
+  workspaceId,
+  canAssignTasks,
+  searchQuery,
+}: TaskBoardProps) {
+  const {
+    data: tasks = [],
+    isLoading,
+    error: queryError,
+  } = useWorkspaceTasks(workspaceId);
+
+  const updateTaskStatusMutation = useUpdateTaskStatus(workspaceId);
+
+  const [mutationError, setMutationError] = useState("");
   const [columns, setColumns] = useState(initialColumns);
-
-  const [hasLoadedTasks, setHasLoadedTasks] = useState(false);
   const [hasLoadedColumns, setHasLoadedColumns] = useState(false);
-
   const [isMobile, setIsMobile] = useState(false);
-
-  // --------------------------------
-  // LOAD TASKS FROM LOCAL STORAGE
-  // --------------------------------
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
 
   useEffect(() => {
-    const savedTasks = localStorage.getItem("task-board-tasks");
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 250);
 
-    if (savedTasks) {
-      try {
-        const parsedTasks = JSON.parse(savedTasks);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
 
-        dispatch(setTasks(parsedTasks));
-      } catch {
-        console.error("Failed to load saved tasks");
-      }
-    }
+  const filteredTasks = useMemo(() => {
+    const normalizedQuery = normalizeSearchText(debouncedSearchQuery);
 
-    setHasLoadedTasks(true);
-  }, [dispatch]);
+    if (!normalizedQuery) return tasks;
 
-  // --------------------------------
-  // SAVE TASKS TO LOCAL STORAGE
-  // --------------------------------
-
-  useEffect(() => {
-    if (!hasLoadedTasks) return;
-
-    localStorage.setItem(
-      "task-board-tasks",
-      JSON.stringify(tasks)
+    return tasks.filter((task) =>
+      normalizeSearchText(task.title).includes(normalizedQuery)
     );
-  }, [tasks, hasLoadedTasks]);
+  }, [debouncedSearchQuery, tasks]);
 
-  // --------------------------------
   // LOAD COLUMNS FROM LOCAL STORAGE
-  // --------------------------------
-
   useEffect(() => {
-    const savedColumns = localStorage.getItem(
-      "task-board-columns"
-    );
+    const savedColumns = localStorage.getItem("task-board-columns");
 
     if (savedColumns) {
       try {
         const parsedColumns = JSON.parse(savedColumns);
-
         setColumns(parsedColumns);
       } catch {
         console.error("Failed to load saved columns");
@@ -117,10 +108,7 @@ export default function TaskBoard() {
     setHasLoadedColumns(true);
   }, []);
 
-  // --------------------------------
   // SAVE COLUMNS TO LOCAL STORAGE
-  // --------------------------------
-
   useEffect(() => {
     if (!hasLoadedColumns) return;
 
@@ -130,45 +118,29 @@ export default function TaskBoard() {
     );
   }, [columns, hasLoadedColumns]);
 
-  // --------------------------------
   // DETECT MOBILE SCREEN
-  // --------------------------------
-
   useEffect(() => {
-    const mediaQuery = window.matchMedia(
-      "(max-width: 767px)"
-    );
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
 
     const handleChange = () => {
       setIsMobile(mediaQuery.matches);
     };
 
     handleChange();
-
-    mediaQuery.addEventListener(
-      "change",
-      handleChange
-    );
+    mediaQuery.addEventListener("change", handleChange);
 
     return () => {
-      mediaQuery.removeEventListener(
-        "change",
-        handleChange
-      );
+      mediaQuery.removeEventListener("change", handleChange);
     };
   }, []);
 
-  // --------------------------------
   // DRAG SENSORS
-  // --------------------------------
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 5,
       },
     }),
-
     useSensor(TouchSensor, {
       activationConstraint: {
         delay: 200,
@@ -177,19 +149,13 @@ export default function TaskBoard() {
     })
   );
 
-  // --------------------------------
   // COLUMN SORTING STRATEGY
-  // --------------------------------
-
   const columnSortingStrategy = isMobile
     ? verticalListSortingStrategy
     : horizontalListSortingStrategy;
 
-  // --------------------------------
   // DRAG END
-  // --------------------------------
-
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (!over) return;
@@ -197,28 +163,36 @@ export default function TaskBoard() {
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    // --------------------------------
     // TASK DRAG
-    // --------------------------------
-
     if (
       !statuses.includes(activeId as TaskStatus) &&
       statuses.includes(overId as TaskStatus)
     ) {
-      dispatch(
-        updateTaskStatus({
+      setMutationError("");
+
+      try {
+        await updateTaskStatusMutation.mutateAsync({
           taskId: activeId,
           status: overId as TaskStatus,
-        })
-      );
+        });
+      } catch (error) {
+        console.error("Failed to update task status:", error);
+
+        if (error instanceof Error) {
+          setMutationError(
+            error.message === "Failed to fetch"
+              ? "Unable to connect to the server"
+              : error.message
+          );
+        } else {
+          setMutationError("Something went wrong");
+        }
+      }
 
       return;
     }
 
-    // --------------------------------
     // COLUMN DRAG
-    // --------------------------------
-
     const oldIndex = columns.findIndex(
       (column) => column.id === activeId
     );
@@ -233,20 +207,13 @@ export default function TaskBoard() {
       oldIndex !== newIndex
     ) {
       setColumns((currentColumns) =>
-        arrayMove(
-          currentColumns,
-          oldIndex,
-          newIndex
-        )
+        arrayMove(currentColumns, oldIndex, newIndex)
       );
     }
   };
 
-  // --------------------------------
-  // WAIT FOR LOCAL STORAGE
-  // --------------------------------
-
-  if (!hasLoadedTasks || !hasLoadedColumns) {
+  // WAIT FOR DATA
+  if (isLoading || !hasLoadedColumns) {
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {initialColumns.map((column) => (
@@ -267,26 +234,55 @@ export default function TaskBoard() {
   }
 
   return (
-    <DndContext
-      id="task-board-dnd"
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext
-        items={columns.map((column) => column.id)}
-        strategy={columnSortingStrategy}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {columns.map((column) => (
-            <TaskColumn
-              key={column.id}
-              id={column.id}
-              title={column.title}
-            />
-          ))}
+    <>
+      {(queryError || mutationError) && (
+        <p className="mb-4 text-sm text-destructive">
+          {mutationError ||
+            (queryError instanceof Error
+              ? queryError.message
+              : "Failed to load tasks")}
+        </p>
+      )}
+
+      {debouncedSearchQuery.trim() && filteredTasks.length === 0 ? (
+        <div
+          role="status"
+          className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 px-4 py-8 text-center"
+        >
+          <Search className="size-6 text-zinc-400" aria-hidden="true" />
+          <p className="mt-3 font-medium text-zinc-800">
+            No tasks match "{debouncedSearchQuery.trim()}"
+          </p>
+          <p className="mt-1 text-sm text-zinc-500">
+            Try another title or description.
+          </p>
         </div>
-      </SortableContext>
-    </DndContext>
+      ) : (
+        <DndContext
+          id="task-board-dnd"
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={columns.map((column) => column.id)}
+            strategy={columnSortingStrategy}
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {columns.map((column) => (
+                <TaskColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  tasks={filteredTasks}
+                  workspaceId={workspaceId}
+                  canAssignTasks={canAssignTasks}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+    </>
   );
 }

@@ -1,13 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useEffect,useState } from "react";
 import { z } from "zod";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { addTask, updateTask } from "@/store/slices/tasksSlice";
-import type { AppDispatch } from "@/store/store";
 import type { Task } from "@/types/task";
 
 import { Input } from "@/components/ui/input";
@@ -31,29 +28,44 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 
 import RichTextEditor from "./RichTextEditor";
+import { useCreateTask, useEditTask } from "@/hooks/tasks";
+import { useWorkspaceMembers } from "@/hooks/workspaces";
+
+const UNASSIGNED_VALUE = "__unassigned__";
 
 const taskSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  description: z.string().min(1, "Description is required"),
+  description: z.string(),
   status: z.enum(["todo", "in-progress", "review", "done"]),
-  dueDate: z.string().min(1, "Due date is required"),
+  dueDate: z.string(),
+  assignedTo: z.string().nullable(),
 });
 
 type TaskFormValues = z.infer<typeof taskSchema>;
 
 type TaskFormProps = {
   task?: Task;
+   workspaceId: string;
+  canAssignTasks: boolean;
   onSuccess: () => void;
 };
 
 export default function TaskForm({
   task,
   onSuccess,
+  workspaceId,
+  canAssignTasks,
 }: TaskFormProps) {
-  const dispatch = useDispatch<AppDispatch>();
+  const [error, setError] = useState("");
 
+const createTaskMutation = useCreateTask(workspaceId);
+const editTaskMutation = useEditTask(workspaceId);
+const workspaceMembersQuery = useWorkspaceMembers(workspaceId, canAssignTasks);
+const workspaceMembers = workspaceMembersQuery.data ?? [];
+
+const isSubmitting =
+  createTaskMutation.isPending || editTaskMutation.isPending;
   const {
-    register,
     handleSubmit,
     control,
     reset,
@@ -65,6 +77,10 @@ export default function TaskForm({
       description: task?.description ?? "",
       status: task?.status ?? "todo",
       dueDate: task?.dueDate ?? "",
+      assignedTo:
+        typeof task?.assignedTo === "string"
+          ? task.assignedTo
+          : task?.assignedTo?._id ?? null,
     },
   });
 
@@ -76,42 +92,74 @@ export default function TaskForm({
     description: task.description,
     status: task.status,
     dueDate: task.dueDate,
+    assignedTo:
+      typeof task.assignedTo === "string"
+        ? task.assignedTo
+        : task.assignedTo?._id ?? null,
   });
 
 }, [task, reset]);
 
-  const onSubmit = (values: TaskFormValues) => {
+
+const onSubmit = async (values: TaskFormValues) => {
+  setError("");
+
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    setError("Please log in to continue");
+    return;
+  }
+
+  try {
     if (task) {
-      dispatch(
-        updateTask({
-          ...task,
+      await editTaskMutation.mutateAsync({
+        taskId: task.id,
+        updates: {
           title: values.title,
           description: values.description,
           status: values.status,
           dueDate: values.dueDate,
-        })
-      );
+          ...(canAssignTasks ? { assignedTo: values.assignedTo } : {}),
+        },
+      });
     } else {
-      dispatch(
-        addTask({
-          id: crypto.randomUUID(),
-          title: values.title,
-          description: values.description,
-          status: values.status,
-          dueDate: values.dueDate,
-          createdAt: new Date().toISOString().split("T")[0],
-        })
-      );
+      await createTaskMutation.mutateAsync({
+        title: values.title,
+        description: values.description,
+        status: values.status,
+        dueDate: values.dueDate,
+        ...(canAssignTasks ? { assignedTo: values.assignedTo } : {}),
+      });
     }
 
     onSuccess();
-  };
+  } catch (error) {
+    console.error("Failed to save task:", error);
+
+    if (error instanceof Error) {
+      setError(
+        error.message === "Failed to fetch"
+          ? "Unable to connect to the server"
+          : error.message
+      );
+    } else {
+      setError("Something went wrong");
+    }
+  }
+};
+
 
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
       className="flex min-h-0 flex-1 flex-col"
     >
+    {error && (
+  <p className="text-sm text-destructive">
+    {error}
+  </p>
+)}
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto py-4 pr-2">
         {/* Title */}
         <div>
@@ -119,11 +167,21 @@ export default function TaskForm({
           Title
         </label>
 
-        <Input
-          {...register("title")}
-          placeholder="Enter task title"
-          className="font-semibold"
-        />
+       <Controller
+  name="title"
+  control={control}
+  render={({ field }) => (
+    <Input
+      name={field.name}
+      value={field.value}
+      onChange={field.onChange}
+      onBlur={field.onBlur}
+      ref={field.ref}
+      placeholder="Enter task title"
+      className="font-semibold"
+    />
+  )}
+/>
 
         {errors.title && (
           <p className="mt-1 text-sm text-destructive">
@@ -258,13 +316,71 @@ export default function TaskForm({
           )}
         </div>
         </div>
+
+        {canAssignTasks && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              Assigned To
+            </label>
+            <Controller
+              name="assignedTo"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onValueChange={(value) =>
+                    field.onChange(value === UNASSIGNED_VALUE ? null : value)
+                  }
+                  disabled={workspaceMembersQuery.isLoading || workspaceMembersQuery.isError}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue
+                      placeholder={
+                        workspaceMembersQuery.isLoading
+                          ? "Loading members..."
+                          : "Select a member"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
+                    {workspaceMembers.map((member) =>
+                      member.userId ? (
+                        <SelectItem key={member.userId._id} value={member.userId._id}>
+                          {member.userId.username || member.userId.email || "Workspace member"}
+                        </SelectItem>
+                      ) : null,
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {workspaceMembersQuery.isError && (
+              <p className="mt-1 text-sm text-destructive">
+                Unable to load workspace members.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Submit */}
       <div className="flex shrink-0 justify-end border-t bg-popover pt-4">
-        <Button type="submit">
-          {task ? "Save Changes" : "Create Task"}
-        </Button>
+        {task && !canAssignTasks ? (
+          <Button type="button" onClick={onSuccess}>
+            Close
+          </Button>
+        ) : (
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting
+              ? task
+                ? "Updating..."
+                : "Creating..."
+              : task
+                ? "Update Task"
+                : "Create Task"}
+          </Button>
+        )}
       </div>
     </form>
   );

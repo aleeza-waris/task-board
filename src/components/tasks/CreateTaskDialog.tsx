@@ -14,7 +14,15 @@ import {
 
 import TaskForm from "./TaskForm";
 
-export default function CreateTaskDialog() {
+type CreateTaskDialogProps = {
+  workspaceId: string;
+  canAssignTasks: boolean;
+};
+
+export default function CreateTaskDialog({
+  workspaceId,
+  canAssignTasks,
+}: CreateTaskDialogProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -33,7 +41,11 @@ export default function CreateTaskDialog() {
           <DialogTitle>Create Task</DialogTitle>
         </DialogHeader>
 
-        <TaskForm onSuccess={() => setOpen(false)} />
+        <TaskForm
+  workspaceId={workspaceId}
+  canAssignTasks={canAssignTasks}
+  onSuccess={() => setOpen(false)}
+/>
       </DialogContent>
     </Dialog>
   );
